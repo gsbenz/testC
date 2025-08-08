@@ -4,14 +4,10 @@ const WebSocket = require('ws');
 const server = http.createServer();
 const wss = new WebSocket.Server({ server });
 
-/** 
- * Structure to track rooms and clients:
- * Map roomName => Set of WebSocket clients
- */
 const rooms = new Map();
 
 wss.on('connection', (ws) => {
-  ws.rooms = new Set(); // rooms this client joined
+  ws.rooms = new Set();
 
   ws.on('message', (msg) => {
     let data;
@@ -24,7 +20,7 @@ wss.on('connection', (ws) => {
 
     if (!data.type) return;
 
-    switch(data.type) {
+    switch (data.type) {
       case 'join':
         if (typeof data.room !== 'string') return;
         joinRoom(ws, data.room);
@@ -40,13 +36,17 @@ wss.on('connection', (ws) => {
         broadcastMessage(ws, data.room, data);
         break;
 
+      case 'reaction':
+        if (!data.room || !data.target || !data.emoji || !data.sender) return;
+        broadcastReaction(ws, data.room, data);
+        break;
+
       default:
         ws.send(JSON.stringify({ type: 'error', message: 'Unknown message type' }));
     }
   });
 
   ws.on('close', () => {
-    // Remove client from all rooms
     ws.rooms.forEach(roomName => {
       leaveRoom(ws, roomName);
     });
@@ -75,15 +75,34 @@ function leaveRoom(ws, roomName) {
 
 function broadcastMessage(senderWs, roomName, message) {
   if (!rooms.has(roomName)) return;
+  const payload = {
+    type: 'message',
+    room: roomName,
+    sender: message.sender,
+    content: message.content,
+    timestamp: message.timestamp || Date.now(),
+    reply: message.reply || null
+  };
   rooms.get(roomName).forEach(client => {
-    if (client !== senderWs && client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({
-        type: 'message',
-        room: roomName,
-        sender: message.sender,
-        content: message.content,
-        timestamp: message.timestamp || Date.now()
-      }));
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify(payload));
+    }
+  });
+}
+
+function broadcastReaction(senderWs, roomName, reaction) {
+  if (!rooms.has(roomName)) return;
+  const payload = {
+    type: 'reaction',
+    room: roomName,
+    sender: reaction.sender,
+    emoji: reaction.emoji,
+    target: reaction.target,
+    timestamp: reaction.timestamp || Date.now()
+  };
+  rooms.get(roomName).forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify(payload));
     }
   });
 }
