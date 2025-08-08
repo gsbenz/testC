@@ -4,7 +4,7 @@ const WebSocket = require('ws');
 const server = http.createServer();
 const wss = new WebSocket.Server({ server });
 
-const rooms = new Map();
+const rooms = new Map(); // Map<roomName, Set<WebSocket>>
 
 wss.on('connection', (ws) => {
   ws.rooms = new Set();
@@ -18,27 +18,39 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    if (!data.type) return;
-
     switch (data.type) {
       case 'join':
-        if (typeof data.room !== 'string') return;
-        joinRoom(ws, data.room);
+        if (typeof data.room === 'string') joinRoom(ws, data.room);
         break;
 
       case 'leave':
-        if (typeof data.room !== 'string') return;
-        leaveRoom(ws, data.room);
+        if (typeof data.room === 'string') leaveRoom(ws, data.room);
         break;
 
       case 'message':
-        if (!data.room || !data.content || !data.sender) return;
-        broadcastMessage(ws, data.room, data);
+        if (data.room && data.content && data.sender) {
+          broadcastToRoom(data.room, {
+            type: 'message',
+            room: data.room,
+            sender: data.sender,
+            content: data.content,
+            timestamp: data.timestamp || Date.now(),
+            reply: data.reply || null
+          });
+        }
         break;
 
       case 'reaction':
-        if (!data.room || !data.target || !data.emoji || !data.sender) return;
-        broadcastReaction(ws, data.room, data);
+        if (data.room && data.target && data.emoji && data.sender) {
+          broadcastToRoom(data.room, {
+            type: 'reaction',
+            room: data.room,
+            sender: data.sender,
+            target: data.target,
+            emoji: data.emoji,
+            timestamp: data.timestamp || Date.now()
+          });
+        }
         break;
 
       default:
@@ -47,16 +59,14 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    ws.rooms.forEach(roomName => {
-      leaveRoom(ws, roomName);
-    });
+    for (const room of ws.rooms) {
+      leaveRoom(ws, room);
+    }
   });
 });
 
 function joinRoom(ws, roomName) {
-  if (!rooms.has(roomName)) {
-    rooms.set(roomName, new Set());
-  }
+  if (!rooms.has(roomName)) rooms.set(roomName, new Set());
   rooms.get(roomName).add(ws);
   ws.rooms.add(roomName);
   ws.send(JSON.stringify({ type: 'system', content: `Joined room: ${roomName}` }));
@@ -65,49 +75,24 @@ function joinRoom(ws, roomName) {
 function leaveRoom(ws, roomName) {
   if (rooms.has(roomName)) {
     rooms.get(roomName).delete(ws);
-    if (rooms.get(roomName).size === 0) {
-      rooms.delete(roomName);
-    }
+    if (rooms.get(roomName).size === 0) rooms.delete(roomName);
   }
   ws.rooms.delete(roomName);
   ws.send(JSON.stringify({ type: 'system', content: `Left room: ${roomName}` }));
 }
 
-function broadcastMessage(senderWs, roomName, message) {
+function broadcastToRoom(roomName, data) {
+  const payload = JSON.stringify(data);
   if (!rooms.has(roomName)) return;
-  const payload = {
-    type: 'message',
-    room: roomName,
-    sender: message.sender,
-    content: message.content,
-    timestamp: message.timestamp || Date.now(),
-    reply: message.reply || null
-  };
-  rooms.get(roomName).forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify(payload));
-    }
-  });
-}
 
-function broadcastReaction(senderWs, roomName, reaction) {
-  if (!rooms.has(roomName)) return;
-  const payload = {
-    type: 'reaction',
-    room: roomName,
-    sender: reaction.sender,
-    emoji: reaction.emoji,
-    target: reaction.target,
-    timestamp: reaction.timestamp || Date.now()
-  };
-  rooms.get(roomName).forEach(client => {
+  for (const client of rooms.get(roomName)) {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify(payload));
+      client.send(payload);
     }
-  });
+  }
 }
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`WebSocket server listening on port ${PORT}`);
+  console.log(`WebSocket server running on port ${PORT}`);
 });
