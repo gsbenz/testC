@@ -96,9 +96,6 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     try {
-      for (const room of ws.rooms) {
-        leaveRoom(ws, room);
-      }
       ws.rooms.clear(); // clear socket's room references
       ws.username = null; // reset username
     } catch (error) {
