@@ -114,8 +114,8 @@ function joinRoom(ws, roomName) {
     client => client.username?.toLowerCase() === ws.username?.toLowerCase()
   );
   if (existingUser) {
-    ws.send(JSON.stringify({ type: 'error',
-      content: `Hello ${ws.username}, welcome! This is just for you.`
+    ws.send(JSON.stringify({ type: 'error', reason: 'duplicate_login',
+    content: 'Someone is already logged in with this username.'
     }));
     return;
   } 
