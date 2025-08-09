@@ -113,7 +113,11 @@ function joinRoom(ws, roomName) {
   const existingUser = [...rooms.get(roomName)].find(
     client => client.username?.toLowerCase() === ws.username?.toLowerCase()
   );
-  if (existingUser) return;
+  if (existingUser) {
+    ws.send(JSON.stringify({ type: 'error',
+      content: `Hello ${ws.username}, welcome! This is just for you.`
+    }));
+  } return;
     
   rooms.get(roomName).add(ws);
   ws.rooms.add(roomName);
@@ -125,12 +129,8 @@ function joinRoom(ws, roomName) {
     sender: ws.username
   }, ws); // <- EXCLUDE this socket
 
-  // Tell the user they joined
-  ws.send(JSON.stringify({ type: 'system', content: `Joined room: ${roomName}` }));
-
   broadcastPresence(roomName);
 }
-
 
 // Leave a room
 function leaveRoom(ws, roomName) {
@@ -161,7 +161,6 @@ function leaveRoom(ws, roomName) {
     sender: ws.username
   }, ws);
 
-  ws.send(JSON.stringify({ type: 'system', content: `Left room: ${roomName}` }));
   broadcastPresence(roomName);
 }
 
