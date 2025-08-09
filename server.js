@@ -170,19 +170,22 @@ function leaveRoom(ws, roomName) {
 }
 
 // Broadcast to a specific room
-function broadcastToRoom(roomName, data) {
+function broadcastToRoom(roomName, data, excludeSocket = null) {
   const payload = JSON.stringify(data);
   if (!rooms.has(roomName)) return;
 
   for (const client of rooms.get(roomName)) {
-    if (client.readyState === WebSocket.OPEN) {
+    if (
+      client.readyState === WebSocket.OPEN &&
+      client !== excludeSocket
+    ) {
       client.send(payload);
     }
   }
 }
 
 // Send user presence list to the room
-function broadcastPresence(roomName) {
+function broadcastPresence(roomName, excludeSocket = null) {
   if (!rooms.has(roomName)) return;
 
   const users = [...rooms.get(roomName)]
@@ -193,7 +196,7 @@ function broadcastPresence(roomName) {
     type: 'presence',
     room: roomName,
     users
-  });
+  }, excludeSocket); // Exclude if provided
 }
 
 const PORT = process.env.PORT || 3000;
