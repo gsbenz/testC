@@ -23,26 +23,24 @@ wss.on('connection', (ws) => {
     switch (data.type) {
 
       case 'join':
-        if (typeof data.room === 'string') {
-          if (typeof data.username === 'string') {
-            ws.username = data.username;
-          }
+        if (validateFields(data, 'room', 'sender')) {
+          ws.username = data.sender;
           joinRoom(ws, data.room);
         }
         break;
 
       case 'leave':
-        if (typeof data.room === 'string') {
+        if (validateFields(data, 'room')) {
           leaveRoom(ws, data.room);
         }
         break;
 
       case 'message':
-        if (data.room && data.content && data.sender) {
+        if (validateFields(data, 'room', 'content') && ws.rooms.has(data.room)) {
           broadcastToRoom(data.room, {
             type: 'message',
             room: data.room,
-            sender: data.sender,
+            sender: ws.username,
             content: data.content,
             timestamp: data.timestamp || Date.now(),
             reply: data.reply || null
@@ -51,11 +49,11 @@ wss.on('connection', (ws) => {
         break;
 
       case 'reaction':
-        if (data.room && data.target && data.emoji && data.sender) {
+        if (validateFields(data, 'room', 'target', 'emoji') && ws.rooms.has(data.room)) {
           broadcastToRoom(data.room, {
             type: 'reaction',
             room: data.room,
-            sender: data.sender,
+            sender: ws.username,
             target: data.target,
             emoji: data.emoji,
             timestamp: data.timestamp || Date.now()
@@ -65,7 +63,9 @@ wss.on('connection', (ws) => {
 
       case 'typing': {
         const room = data.room;
-        const user = data.sender;
+        const user = ws.username;
+
+        if (!room || !user || !ws.rooms.has(room)) break;
 
         if (!typingUsers[room]) typingUsers[room] = new Set();
 
@@ -95,6 +95,11 @@ wss.on('connection', (ws) => {
   });
 });
 
+// Validate required string fields
+function validateFields(data, ...fields) {
+  return fields.every(f => typeof data[f] === 'string');
+}
+
 // Join a room
 function joinRoom(ws, roomName) {
   if (!rooms.has(roomName)) rooms.set(roomName, new Set());
@@ -113,8 +118,22 @@ function leaveRoom(ws, roomName) {
   }
   ws.rooms.delete(roomName);
 
-  broadcastPresence(roomName);
+  // Clean up typing indicators
+  if (typingUsers[roomName]) {
+    typingUsers[roomName].delete(ws.username);
+    if (typingUsers[roomName].size === 0) {
+      delete typingUsers[roomName];
+    } else {
+      broadcastToRoom(roomName, {
+        type: 'typing',
+        room: roomName,
+        typingUsers: Array.from(typingUsers[roomName])
+      });
+    }
+  }
+
   ws.send(JSON.stringify({ type: 'system', content: `Left room: ${roomName}` }));
+  broadcastPresence(roomName);
 }
 
 // Broadcast to a specific room
@@ -145,7 +164,6 @@ function broadcastPresence(roomName) {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, () => {
   console.log(`WebSocket server running on port ${PORT}`);
 });
-
