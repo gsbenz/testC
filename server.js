@@ -34,7 +34,7 @@ wss.on('connection', (ws) => {
           leaveRoom(ws, data.room);
         }
         break;
-
+        
       case 'message':
         if (validateFields(data, 'room', 'content') && ws.rooms.has(data.room)) {
           broadcastToRoom(data.room, {
@@ -95,10 +95,15 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    for (const room of ws.rooms) {
-      leaveRoom(ws, room);
+    try {
+      for (const room of ws.rooms) {
+        leaveRoom(ws, room);
+      }
+      ws.rooms.clear(); // clear socket's room references
+      ws.username = null; // reset username
+    } catch (error) {
+      console.error('Error handling close event:', error);
     }
-    ws.rooms.clear(); // clear socket's room references
   });
 });
 
