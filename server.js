@@ -19,6 +19,12 @@ wss.on('connection', (ws) => {
     }
 
     switch (data.type) {
+
+      case 'typing':
+        (typingUsers[msg.room] ??= new Set())[msg.typing ? 'add' : 'delete'](msg.sender);
+        updateTypingIndicator(msg.room);
+        break;
+
       case 'join':
         if (typeof data.room === 'string') joinRoom(ws, data.room);
         break;
