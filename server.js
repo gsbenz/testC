@@ -112,9 +112,19 @@ function joinRoom(ws, roomName) {
   rooms.get(roomName).add(ws);
   ws.rooms.add(roomName);
 
+  // Notify others that a user joined (excluding the user themselves)
+  broadcastToRoom(roomName, {
+    type: 'user_joined',
+    room: roomName,
+    sender: ws.username
+  }, ws); // <- EXCLUDE this socket
+
+  // Tell the user they joined
   ws.send(JSON.stringify({ type: 'system', content: `Joined room: ${roomName}` }));
+
   broadcastPresence(roomName);
 }
+
 
 // Leave a room
 function leaveRoom(ws, roomName) {
