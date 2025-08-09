@@ -21,7 +21,7 @@ wss.on('connection', (ws) => {
     }
 
     switch (data.type) {
-
+      
       case 'join':
         if (validateFields(data, 'room', 'sender')) {
           ws.username = data.sender;
@@ -58,6 +58,12 @@ wss.on('connection', (ws) => {
             emoji: data.emoji,
             timestamp: data.timestamp || Date.now()
           });
+        }
+        break;
+
+      case 'presence_request':
+        if (validateFields(data, 'room') && ws.rooms.has(data.room)) {
+          broadcastPresence(data.room);
         }
         break;
 
