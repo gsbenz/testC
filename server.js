@@ -87,6 +87,14 @@ wss.on('connection', (ws) => {
           typingUsers: Array.from(typingUsers[room])
         });
         break;
+
+      case 'exit':
+        if (ws.rooms) {
+          for (const room of ws.rooms) {
+            leaveRoom(ws, room);
+          }
+        }
+        break;
       }
 
       default:
