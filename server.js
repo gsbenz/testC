@@ -148,6 +148,13 @@ function leaveRoom(ws, roomName) {
     }
   }
 
+  // Notify others
+  broadcastToRoom(roomName, {
+    type: 'user_left',
+    room: roomName,
+    sender: ws.username
+  }, ws);
+
   ws.send(JSON.stringify({ type: 'system', content: `Left room: ${roomName}` }));
   broadcastPresence(roomName);
 }
