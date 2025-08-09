@@ -87,16 +87,6 @@ wss.on('connection', (ws) => {
           typingUsers: Array.from(typingUsers[room])
         });
         break;
-
-      case 'exit':
-        // Manually leave all rooms
-        for (const room of ws.rooms) {
-          leaveRoom(ws, room);
-        }
-        ws.rooms.clear(); // Optional safety
-        ws.terminated = true; // Optional: mark manually
-        ws.close(); // Close the WebSocket
-        break;
       }
 
       default:
@@ -120,23 +110,18 @@ function validateFields(data, ...fields) {
 function joinRoom(ws, roomName) {
   if (!rooms.has(roomName)) rooms.set(roomName, new Set());
 
-  // 🔒 Check if user already exists across all clients
-  const isDuplicate = [...wss.clients].some(client =>
-    client !== ws &&
-    client.readyState === WebSocket.OPEN &&
-    client.username?.toLowerCase() === ws.username?.toLowerCase()
+  const existingUser = [...rooms.get(roomName)].find(
+    client => client.username?.toLowerCase() === ws.username?.toLowerCase()
   );
-
-  if (isDuplicate) {
-    ws.send(JSON.stringify({
-      type: 'error',
-      reason: 'duplicate_login',
-      content: 'Someone is already logged in with this username.'
+  if (existingUser) {
+    ws.send(JSON.stringify({ type: 'error', reason: 'duplicate_login',
+    content: 'Someone is already logged in with this username.'
     }));
-    ws.close(); // ❌ Disconnect completely from server
+    leaveRoom(ws, roomName)
+    ws.close();
     return;
-  }
-
+  } 
+    
   rooms.get(roomName).add(ws);
   ws.rooms.add(roomName);
 
@@ -145,7 +130,7 @@ function joinRoom(ws, roomName) {
     type: 'user_joined',
     room: roomName,
     sender: ws.username
-  }, ws);
+  }, ws); // <- EXCLUDE this socket
 
   broadcastPresence(roomName);
 }
