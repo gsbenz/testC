@@ -23,8 +23,10 @@ wss.on('connection', (ws) => {
     switch (data.type) {
 
       case 'join':
-        if (typeof data.room === 'string' && typeof data.username === 'string') {
-          ws.username = data.username;
+        if (typeof data.room === 'string') {
+          if (typeof data.username === 'string') {
+            ws.username = data.username;
+          }
           joinRoom(ws, data.room);
         }
         break;
