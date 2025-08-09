@@ -95,12 +95,11 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    try {
-      ws.rooms.clear(); // clear socket's room references
-      ws.username = null; // reset username
-    } catch (error) {
-      console.error('Error handling close event:', error);
+    for (const room of ws.rooms) {
+      leaveRoom(ws, room);
     }
+    ws.rooms.clear();
+    ws.username = null;
   });
 });
 
