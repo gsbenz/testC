@@ -98,6 +98,7 @@ wss.on('connection', (ws) => {
     for (const room of ws.rooms) {
       leaveRoom(ws, room);
     }
+    ws.rooms.clear(); // clear socket's room references
   });
 });
 
