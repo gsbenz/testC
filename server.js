@@ -110,7 +110,9 @@ function validateFields(data, ...fields) {
 function joinRoom(ws, roomName) {
   if (!rooms.has(roomName)) rooms.set(roomName, new Set());
 
-  const existingUser = [...rooms.get(roomName)].find(client => client.username === ws.username);
+  const existingUser = [...rooms.get(roomName)].find(
+    client => client.username?.toLowerCase() === ws.username?.toLowerCase()
+  );
   if (existingUser) return;
     
   rooms.get(roomName).add(ws);
