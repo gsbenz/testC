@@ -117,7 +117,8 @@ function joinRoom(ws, roomName) {
     ws.send(JSON.stringify({ type: 'error',
       content: `Hello ${ws.username}, welcome! This is just for you.`
     }));
-  } return;
+    return;
+  } 
     
   rooms.get(roomName).add(ws);
   ws.rooms.add(roomName);
