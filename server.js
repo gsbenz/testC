@@ -117,7 +117,6 @@ function joinRoom(ws, roomName) {
     ws.send(JSON.stringify({ type: 'error', reason: 'duplicate_login',
     content: 'Someone is already logged in with this username.'
     }));
-    leaveRoom(ws, roomName)
     ws.close();
     return;
   } 
