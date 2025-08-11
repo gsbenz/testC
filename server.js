@@ -34,6 +34,11 @@ wss.on('connection', (ws) => {
         }
         break;
 
+      case 'quit':
+        ws.send(JSON.stringify({ type: 'info', message: 'Goodbye!' }));
+        ws.close();
+        break;
+
       case 'message':
         if (validateFields(data, 'room', 'content') && ws.rooms.has(data.room)) {
           broadcastToRoom(data.room, {
