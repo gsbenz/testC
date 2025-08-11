@@ -35,6 +35,7 @@ wss.on('connection', (ws) => {
         break;
 
       case 'quit':
+        console.log(`[QUIT] ${ws.username} has disconnected`);
         ws.send(JSON.stringify({ type: 'info', message: 'Goodbye!' }));
         ws.close();
         break;
