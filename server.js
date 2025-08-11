@@ -108,7 +108,7 @@ wss.on('connection', (ws) => {
 
 // Validate required string fields
 function validateFields(data, ...fields) {
-  return fields.every(f => typeof data[f] === 'string');
+  return fields.every(f => typeof data[f] === 'string' || typeof data[f] === 'number');
 }
 
 // Join a room
