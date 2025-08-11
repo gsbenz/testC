@@ -53,7 +53,7 @@ wss.on('connection', (ws) => {
           broadcastToRoom(data.room, {
             type: 'reaction',
             room: data.room,
-            sender: ws.username,
+            sender: data.sender,
             target: data.target,
             emoji: data.emoji,
             timestamp: data.timestamp || Date.now()
