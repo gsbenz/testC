@@ -34,7 +34,7 @@ wss.on('connection', (ws) => {
           leaveRoom(ws, data.room);
         }
         break;
-        
+
       case 'message':
         if (validateFields(data, 'room', 'content') && ws.rooms.has(data.room)) {
           broadcastToRoom(data.room, {
@@ -98,8 +98,6 @@ wss.on('connection', (ws) => {
     for (const room of ws.rooms) {
       leaveRoom(ws, room);
     }
-    ws.rooms.clear();
-    ws.username = null;
   });
 });
 
@@ -111,18 +109,6 @@ function validateFields(data, ...fields) {
 // Join a room
 function joinRoom(ws, roomName) {
   if (!rooms.has(roomName)) rooms.set(roomName, new Set());
-
-  const existingUser = [...rooms.get(roomName)].find(
-    client => client.username?.toLowerCase() === ws.username?.toLowerCase()
-  );
-  if (existingUser) {
-    ws.send(JSON.stringify({ type: 'error', reason: 'duplicate_login',
-    content: 'Someone is already logged in with this username.'
-    }));
-    ws.close();
-    return;
-  } 
-    
   rooms.get(roomName).add(ws);
   ws.rooms.add(roomName);
 
@@ -133,8 +119,12 @@ function joinRoom(ws, roomName) {
     sender: ws.username
   }, ws); // <- EXCLUDE this socket
 
+  // Tell the user they joined
+  ws.send(JSON.stringify({ type: 'system', content: `Joined room: ${roomName}` }));
+
   broadcastPresence(roomName);
 }
+
 
 // Leave a room
 function leaveRoom(ws, roomName) {
@@ -165,26 +155,24 @@ function leaveRoom(ws, roomName) {
     sender: ws.username
   }, ws);
 
+  ws.send(JSON.stringify({ type: 'system', content: `Left room: ${roomName}` }));
   broadcastPresence(roomName);
 }
 
 // Broadcast to a specific room
-function broadcastToRoom(roomName, data, excludeSocket = null) {
+function broadcastToRoom(roomName, data) {
   const payload = JSON.stringify(data);
   if (!rooms.has(roomName)) return;
 
   for (const client of rooms.get(roomName)) {
-    if (
-      client.readyState === WebSocket.OPEN &&
-      client !== excludeSocket
-    ) {
+    if (client.readyState === WebSocket.OPEN) {
       client.send(payload);
     }
   }
 }
 
 // Send user presence list to the room
-function broadcastPresence(roomName, excludeSocket = null) {
+function broadcastPresence(roomName) {
   if (!rooms.has(roomName)) return;
 
   const users = [...rooms.get(roomName)]
@@ -195,7 +183,7 @@ function broadcastPresence(roomName, excludeSocket = null) {
     type: 'presence',
     room: roomName,
     users
-  }, excludeSocket); // Exclude if provided
+  });
 }
 
 const PORT = process.env.PORT || 3000;
