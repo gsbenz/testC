@@ -19,7 +19,6 @@ wss.on('connection', (ws) => {
       ws.send(JSON.stringify({ type: 'error', message: 'Invalid JSON' }));
       return;
     }
-    console.log(data)
     switch (data.type) {
       
       case 'join':
