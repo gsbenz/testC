@@ -19,7 +19,7 @@ wss.on('connection', (ws) => {
       ws.send(JSON.stringify({ type: 'error', message: 'Invalid JSON' }));
       return;
     }
-
+    console.log(data)
     switch (data.type) {
       
       case 'join':
@@ -49,7 +49,9 @@ wss.on('connection', (ws) => {
         break;
 
       case 'reaction':
+        console.log(`[Reaction] Received from ${ws.username} in room: ${data.room}`);
         if (validateFields(data, 'room', 'target', 'emoji') && ws.rooms.has(data.room)) {
+          console.log(`[Reaction] Broadcasting reaction to room: ${data.room}`);
           broadcastToRoom(data.room, {
             type: 'reaction',
             room: data.room,
@@ -58,6 +60,8 @@ wss.on('connection', (ws) => {
             emoji: data.emoji,
             timestamp: data.timestamp || Date.now()
           });
+        } else {
+          console.log(`[Reaction] Rejected: not in room or invalid data`, data);
         }
         break;
 
