@@ -5,11 +5,9 @@ const server = http.createServer();
 const wss = new WebSocket.Server({ server });
 
 const rooms = new Map(); // Map<roomName, Set<WebSocket>>
-const typingUsers = {};  // { roomName: Set<username> }
 
 wss.on('connection', (ws) => {
   ws.rooms = new Set();
-  ws.username = null;
 
   ws.on('message', (msg) => {
     let data;
@@ -21,26 +19,20 @@ wss.on('connection', (ws) => {
     }
 
     switch (data.type) {
-      
       case 'join':
-        if (validateFields(data, 'room', 'sender')) {
-          ws.username = data.sender;
-          joinRoom(ws, data.room);
-        }
+        if (typeof data.room === 'string') joinRoom(ws, data.room);
         break;
 
       case 'leave':
-        if (validateFields(data, 'room')) {
-          leaveRoom(ws, data.room);
-        }
+        if (typeof data.room === 'string') leaveRoom(ws, data.room);
         break;
 
       case 'message':
-        if (validateFields(data, 'room', 'content') && ws.rooms.has(data.room)) {
+        if (data.room && data.content && data.sender) {
           broadcastToRoom(data.room, {
             type: 'message',
             room: data.room,
-            sender: ws.username,
+            sender: data.sender,
             content: data.content,
             timestamp: data.timestamp || Date.now(),
             reply: data.reply || null
@@ -49,45 +41,17 @@ wss.on('connection', (ws) => {
         break;
 
       case 'reaction':
-        if (validateFields(data, 'room', 'target', 'emoji') && ws.rooms.has(data.room)) {
+        if (data.room && data.target && data.emoji && data.sender) {
           broadcastToRoom(data.room, {
             type: 'reaction',
             room: data.room,
-            sender: ws.username,
+            sender: data.sender,
             target: data.target,
             emoji: data.emoji,
             timestamp: data.timestamp || Date.now()
           });
         }
         break;
-
-      case 'presence_request':
-        if (validateFields(data, 'room') && ws.rooms.has(data.room)) {
-          broadcastPresence(data.room);
-        }
-        break;
-
-      case 'typing': {
-        const room = data.room;
-        const user = ws.username;
-
-        if (!room || !user || !ws.rooms.has(room)) break;
-
-        if (!typingUsers[room]) typingUsers[room] = new Set();
-
-        if (data.typing) {
-          typingUsers[room].add(user);
-        } else {
-          typingUsers[room].delete(user);
-        }
-
-        broadcastToRoom(room, {
-          type: 'typing',
-          room,
-          typingUsers: Array.from(typingUsers[room])
-        });
-        break;
-      }
 
       default:
         ws.send(JSON.stringify({ type: 'error', message: 'Unknown message type' }));
@@ -101,65 +65,22 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Validate required string fields
-function validateFields(data, ...fields) {
-  return fields.every(f => typeof data[f] === 'string');
-}
-
-// Join a room
 function joinRoom(ws, roomName) {
   if (!rooms.has(roomName)) rooms.set(roomName, new Set());
   rooms.get(roomName).add(ws);
   ws.rooms.add(roomName);
-
-  // Notify others that a user joined (excluding the user themselves)
-  broadcastToRoom(roomName, {
-    type: 'user_joined',
-    room: roomName,
-    sender: ws.username
-  }, ws); // <- EXCLUDE this socket
-
-  // Tell the user they joined
   ws.send(JSON.stringify({ type: 'system', content: `Joined room: ${roomName}` }));
-
-  broadcastPresence(roomName);
 }
 
-
-// Leave a room
 function leaveRoom(ws, roomName) {
   if (rooms.has(roomName)) {
     rooms.get(roomName).delete(ws);
     if (rooms.get(roomName).size === 0) rooms.delete(roomName);
   }
   ws.rooms.delete(roomName);
-
-  // Clean up typing indicators
-  if (typingUsers[roomName]) {
-    typingUsers[roomName].delete(ws.username);
-    if (typingUsers[roomName].size === 0) {
-      delete typingUsers[roomName];
-    } else {
-      broadcastToRoom(roomName, {
-        type: 'typing',
-        room: roomName,
-        typingUsers: Array.from(typingUsers[roomName])
-      });
-    }
-  }
-
-  // Notify others
-  broadcastToRoom(roomName, {
-    type: 'user_left',
-    room: roomName,
-    sender: ws.username
-  }, ws);
-
   ws.send(JSON.stringify({ type: 'system', content: `Left room: ${roomName}` }));
-  broadcastPresence(roomName);
 }
 
-// Broadcast to a specific room
 function broadcastToRoom(roomName, data) {
   const payload = JSON.stringify(data);
   if (!rooms.has(roomName)) return;
@@ -169,21 +90,6 @@ function broadcastToRoom(roomName, data) {
       client.send(payload);
     }
   }
-}
-
-// Send user presence list to the room
-function broadcastPresence(roomName) {
-  if (!rooms.has(roomName)) return;
-
-  const users = [...rooms.get(roomName)]
-    .map(ws => ws.username)
-    .filter(Boolean);
-
-  broadcastToRoom(roomName, {
-    type: 'presence',
-    room: roomName,
-    users
-  });
 }
 
 const PORT = process.env.PORT || 3000;
